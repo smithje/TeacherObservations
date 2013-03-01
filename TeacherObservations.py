@@ -139,7 +139,7 @@ def compare_teacher_evals(eval1, eval2):
     
     def get_sub_category(category_name):
         if category_name.find(':')>-1:
-            return category.split(':)[1].strip()
+            return category.split(':')[1].strip()
         else:
             return category_name
     
