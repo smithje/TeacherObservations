@@ -255,7 +255,7 @@ def html_output(eval1, eval2, output_file, category_result):
         output += '<div id="%s" style="width:700; height:100"></div>\n' % category
     
     for category in sorted(category_result.keys()):
-        output += '<div id="%s" style="width:400; height:400"></div>\n' % category
+        output += '<div id="%s" style="width:700; height:500"></div>\n' % category
         
     # End the page
     output += """</body>
