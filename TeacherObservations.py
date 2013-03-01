@@ -164,7 +164,7 @@ First only: %d
 Second only: %d
 Total: %d
 Total agreement: %d""" % (cnt['both'], cnt['neither'], cnt['first'], cnt['second'], \
-                           sum(cnt.values(), cnt['both']+cnt['neither']))
+                           sum(cnt.values()), cnt['both']+cnt['neither'])
     return cnt
     
 
