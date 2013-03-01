@@ -177,7 +177,7 @@ def compare_teacher_evals(eval1, eval2):
                     raise IOError("Something bad happened with our parsing.  This is likely a data problem...")
         if both_counter>0:
             sub_category = get_sub_category(category)
-            category_result[this_broad_category][sub_category] = both_counter
+            category_results[this_broad_category][sub_category] = both_counter
             print "  %s: %d" % (sub_category, both_counter)
     print """Totals:
 Both: %d
@@ -187,7 +187,7 @@ Second only: %d
 Total: %d
 Total agreement: %d (%.2f%%)""" % (cnt['both'], cnt['neither'], cnt['first'], cnt['second'], \
                            sum(cnt.values()), cnt['both']+cnt['neither'], 100.0*(cnt['both']+cnt['neither'])/sum(cnt.values()))
-    return cnt, category_result
+    return cnt, category_results
     
 
 def html_output(eval1, eval2, output_file, category_result):
@@ -231,7 +231,7 @@ def html_output(eval1, eval2, output_file, category_result):
                     """ % (category, category, category)
     
     # Add the pie chart data
-    for category in category_result:
+    for category in sorted(category_result.keys()):
         data = [['category', 'time_blocks']]
         for sub_category, time in category_result[category].iteritems():
             data.append([sub_category, int(time)])
@@ -255,7 +255,7 @@ def html_output(eval1, eval2, output_file, category_result):
         output += '<div id="%s" style="width:700; height:100"></div>\n' % category
     
     for category in category_result:
-        output += '<div id="%s" style="width:700; height:100"></div>\n' % category
+        output += '<div id="%s" style="width:400; height:400"></div>\n' % category
         
     # End the page
     output += """</body>
@@ -289,7 +289,7 @@ if __name__ == '__main__':
         TE2 = TeacherObservation(csv2)
         TE2.parse()
         
-        cnt = compare_teacher_evals(TE1, TE2)
+        cnt, category_result = compare_teacher_evals(TE1, TE2)
         if args.output:
             html_output(TE1, TE2, args.output[0], category_result)
     
