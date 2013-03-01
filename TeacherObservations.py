@@ -148,6 +148,7 @@ def compare_teacher_evals(eval1, eval2):
     assert eval1.times == eval2.times, \
     "The times do not match, I can't compare these.\nEval1 times: %s\nEvan2 times: %s" % (eval1.times, eval2.times)
     cnt = Counter()
+    category_results = defaultdict(dict)
     last_broad_category = ''
     print "Both reviewers agree on the following:"
     for category in eval1.categories:
@@ -175,7 +176,9 @@ def compare_teacher_evals(eval1, eval2):
                 else:
                     raise IOError("Something bad happened with our parsing.  This is likely a data problem...")
         if both_counter>0:
-            print "  %s: %d" % (get_sub_category(category), both_counter)
+            sub_category = get_sub_category(category)
+            category_result[this_broad_category][sub_category] = both_counter
+            print "  %s: %d" % (sub_category, both_counter)
     print """Totals:
 Both: %d
 Neither: %d
@@ -184,10 +187,10 @@ Second only: %d
 Total: %d
 Total agreement: %d (%.2f%%)""" % (cnt['both'], cnt['neither'], cnt['first'], cnt['second'], \
                            sum(cnt.values()), cnt['both']+cnt['neither'], 100.0*(cnt['both']+cnt['neither'])/sum(cnt.values()))
-    return cnt
+    return cnt, category_result
     
 
-def html_output(eval1, eval2, output_file):
+def html_output(eval1, eval2, output_file, category_result):
     """
     A quick and dirty attempt at making some plots
     """
@@ -227,6 +230,19 @@ def html_output(eval1, eval2, output_file):
                         isStacked: true});
                     """ % (category, category, category)
     
+    # Add the pie chart data
+    for category in category_result:
+        data = [['category', 'time_blocks']]
+        for sub_category, time in category_result[category].iteritems():
+            data.append([sub_category, int(time)])
+        output += """data["%s"] = google.visualization.arrayToDataTable(%s);\n""" % (category, json.dumps(data))
+        
+    # Add the pie chart functions
+    for category in category_result:
+        output += """new google.visualization.PieChart(document.getElementById('%s')).
+                        draw(data["%s"], {title: "%s"});
+                  """ % (category, category, category)
+    
     # Close the script tags and start the body
     output += """};
     </script>
@@ -238,6 +254,9 @@ def html_output(eval1, eval2, output_file):
     for category in eval1.categories[1:]:
         output += '<div id="%s" style="width:700; height:100"></div>\n' % category
     
+    for category in category_result:
+        output += '<div id="%s" style="width:700; height:100"></div>\n' % category
+        
     # End the page
     output += """</body>
 </html>"""
@@ -272,5 +291,5 @@ if __name__ == '__main__':
         
         cnt = compare_teacher_evals(TE1, TE2)
         if args.output:
-            html_output(TE1, TE2, args.output[0])
+            html_output(TE1, TE2, args.output[0], category_result)
     
