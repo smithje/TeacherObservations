@@ -231,7 +231,7 @@ def html_output(eval1, eval2, output_file, category_result):
                     """ % (category, category, category)
     
     # Add the pie chart data
-    for category in sorted(category_result.keys()):
+    for category in category_result:
         data = [['category', 'time_blocks']]
         for sub_category, time in category_result[category].iteritems():
             data.append([sub_category, int(time)])
@@ -254,7 +254,7 @@ def html_output(eval1, eval2, output_file, category_result):
     for category in eval1.categories[1:]:
         output += '<div id="%s" style="width:700; height:100"></div>\n' % category
     
-    for category in category_result:
+    for category in sorted(category_result.keys()):
         output += '<div id="%s" style="width:400; height:400"></div>\n' % category
         
     # End the page
