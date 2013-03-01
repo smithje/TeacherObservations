@@ -139,7 +139,8 @@ def compare_teacher_evals(eval1, eval2):
     for category in eval1.categories:
         both_counter=0
         # The : MIN category will be in categories.  We shouldn't try to process this, though
-        if category in eval1.results:
+        # We also want to leave off the Engagement category because it is optional and not all reviewers do it.
+        if category in eval1.results and category.lower().find('engagement')==-1:
             for time_ind, time in enumerate(eval1.times):
                 eval1result = eval1.results[category][time_ind]
                 eval2result = eval2.results[category][time_ind]
