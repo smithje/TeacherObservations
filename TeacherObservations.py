@@ -130,17 +130,36 @@ def compare_teacher_evals(eval1, eval2):
     Returns a Counter with the following keys:
     both, neither, first, second
     """
+    
+    def get_broad_category(category_name):
+        if category_name.find(':')>-1:
+            return category.split(':)[0].strip()
+        else:
+            return category_name
+    
+    def get_sub_category(category_name):
+        if category_name.find(':')>-1:
+            return category.split(':)[1].strip()
+        else:
+            return category_name
+    
     assert eval1.categories == eval2.categories, \
     "The categories do not match, I can't compare these\nEval1 Categories: %s\nEval2 Categories: %s" % (eval1.categories, eval2.categories)
     assert eval1.times == eval2.times, \
     "The times do not match, I can't compare these.\nEval1 times: %s\nEvan2 times: %s" % (eval1.times, eval2.times)
     cnt = Counter()
+    last_broad_category = ''
     print "Both reviewers agree on the following:"
     for category in eval1.categories:
         both_counter=0
         # The : MIN category will be in categories.  We shouldn't try to process this, though
         # We also want to leave off the Engagement category because it is optional and not all reviewers do it.
         if category in eval1.results and category.lower().find('engagement')==-1:
+            this_broad_category = get_broad_category(category)
+            if this_broad_category != last_broad_category:
+                print "%s" % broad_category
+                last_broad_category = this_broad_category
+            
             for time_ind, time in enumerate(eval1.times):
                 eval1result = eval1.results[category][time_ind]
                 eval2result = eval2.results[category][time_ind]
@@ -156,7 +175,7 @@ def compare_teacher_evals(eval1, eval2):
                 else:
                     raise IOError("Something bad happened with our parsing.  This is likely a data problem...")
         if both_counter>0:
-            print "  %d  - time blocks on category %s" % (both_counter, category)
+            print "  %s: %d" % (get_sub_category(category), both_counter)
     print """Totals:
 Both: %d
 Neither: %d
