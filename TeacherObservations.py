@@ -155,12 +155,15 @@ def compare_teacher_evals(eval1, eval2):
                 else:
                     raise IOError("Something bad happened with our parsing.  This is likely a data problem...")
         if both_counter>0:
-            print "  %d time blocks on category %s" % (both_counter, category)
+            print "  %d  - time blocks on category %s" % (both_counter, category)
     print """Totals:
 Both: %d
 Neither: %d
 First only: %d
-Second only: %d""" % (cnt['both'], cnt['neither'], cnt['first'], cnt['second'])
+Second only: %d
+Total: %d
+Total agreement: %d""" % (cnt['both'], cnt['neither'], cnt['first'], cnt['second'], 
+                            sum(cnt.values(), cnt['both']+cnt['neither'])
     return cnt
     
 
@@ -248,6 +251,6 @@ if __name__ == '__main__':
         TE2.parse()
         
         cnt = compare_teacher_evals(TE1, TE2)
-        if 'output' in args:
+        if args.output:
             html_output(TE1, TE2, args.output[0])
     
