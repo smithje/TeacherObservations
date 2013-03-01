@@ -157,7 +157,7 @@ def compare_teacher_evals(eval1, eval2):
         if category in eval1.results and category.lower().find('engagement')==-1:
             this_broad_category = get_broad_category(category)
             if this_broad_category != last_broad_category:
-                print "%s" % broad_category
+                print "%s" % this_broad_category
                 last_broad_category = this_broad_category
             
             for time_ind, time in enumerate(eval1.times):
