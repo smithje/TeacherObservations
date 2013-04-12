@@ -26,7 +26,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import csv
 import argparse
 import os.path
-from collections import defaultdict, Counter
+from collections import defaultdict, Counter, OrderedDict
 from pprint import pprint
 
 class TeacherObservation(object):
@@ -54,8 +54,9 @@ class TeacherObservation(object):
         ,1. instructor doing,,,,,,,,,,,,2. Students doing,,,,,,,,,,,,,3. Engagement,,,"Comments"
         MIN,Lec,FUp,RtW,D / V,PQ,CQ,R / H ,1o1,CD ,AD,N,O,L,Ind,Prd,CG,WG ,OG ,SQ,WC,SP ,TQ ,W,AQ,O,L,M,H,
         
-        Because the column headers aren't all the same in the second line, we need to make new category
-        names which are actually unique.  Assume that each broad category contains only unique values.
+        Because the column headers aren't all the same in the second line, we need to special care in parsing the 
+        categories.  We will create an OrderedDict with the broad categories (instructor doing, teacher doing) as keys.
+        The values will be an array of subcategories.  
         
         We will receive the values already broken up by the csv module.
         
@@ -64,21 +65,26 @@ class TeacherObservation(object):
         >>> header_broad_categories = ['','1. instructor','','','','','','','','','','','','2. Students','','','','','','','','','','','','','3. Engagement','','','Comments']
         >>> header_observation_categories = ['MIN','Lec','FUp','RtW','D / V','PQ','CQ','R / H ','1o1','CD ','AD','N','O','L','Ind','Prd','CG','WG ','OG ','SQ','WC','SP ','TQ ','W','AQ','O','L','M','H','']
         >>> categories = TeacherObservation.parse_categories(header_broad_categories, header_observation_categories)
-        >>> categories[0]
-        ': MIN'
-        >>> categories[1]
-        '1. instructor: Lec'
-        >>> categories[-1]
-        '3. Engagement: H'
+        >>> categories.keys()
+        ['', '1.  instructor', '2. Students']
+        >>> categories['']
+        ['MIN']
         """
         assert len(header_broad_categories) == len(header_observation_categories), "The header rows must have the same number of columns"
         broad_categories_unpacked = []
-        last_category = ''
+        categories = OrderedDict()
+        # Force the first one to be Time
+        last_category = 'Time'
         for category in header_broad_categories:
             if category != '':
                 last_category = category
             broad_categories_unpacked.append(last_category)
-        categories = ['%s: %s' % (broad_categories_unpacked[ind], obs_cat) for ind, obs_cat in enumerate(header_observation_categories) if obs_cat != '']
+        for index, broad_category in enumerate(broad_categories_unpacked):
+                if not broad_category.startswith('Comment'):
+                    
+                    categories.setdefault(broad_category, [])
+                    categories[broad_category].append(header_observation_categories[index])
+        del categories['Time']
         return categories
         
                 
@@ -100,28 +106,42 @@ class TeacherObservation(object):
             header_observation_categories = reader.next()
             # Parse these categories
             self.categories = self.parse_categories(header_broad_categories, header_observation_categories)
-            # Get rid of the basic reader, we can now use the DictReader
-            del reader
-            # The time category must always be the first column
-            time_category = self.categories[0]
+            
             # Set up the results object
-            self.results = defaultdict(list)
-            reader = csv.DictReader(csvfile, fieldnames = self.categories)
+            self.results = {}
+            for category in self.categories.keys():
+                if category != '':
+                    self.results[category] = defaultdict(list)
+            #reader = csv.DictReader(csvfile, fieldnames = self.categories)
             for line in reader:
+                
+                # Time must always be first
+                time_block = line[0]
                 # Skip any lines without something in the minute field, as these are presumed to be just headers
-                time_block = line[time_category]
                 if time_block != '':
                     # get rid of the ranges, so we could analyze or plot these data
                     time_block_first_digit = time_block.split('-')[0].strip()
                     # The times are stored in a list
                     self.times.append(time_block_first_digit)
-                    for key, value in line.iteritems():
-                        if key != time_category and key is not None:
+                    
+                    # Initialize our parsing
+                    result_position = 1
+                    
+                    # Iterate over the categories
+                    for category, obs in self.categories.iteritems():
+                        # Iterate over the observations
+                        for observation in obs:
+                            
+                            value=line[result_position]
                             if value.strip() == '':
                                 value = 0
                             else:
                                 value = 1
-                            self.results[key].append(value)
+                            # Build up the results
+                            self.results[category][observation].append(value)
+                            # Move on to the next position
+                            result_position += 1
+                                    
 
 
 
@@ -131,54 +151,52 @@ def compare_teacher_evals(eval1, eval2):
     both, neither, first, second
     """
     
-    def get_broad_category(category_name):
-        if category_name.find(':')>-1:
-            return category.split(':')[0].strip()
-        else:
-            return category_name
-    
-    def get_sub_category(category_name):
-        if category_name.find(':')>-1:
-            return category.split(':')[1].strip()
-        else:
-            return category_name
     
     assert eval1.categories == eval2.categories, \
     "The categories do not match, I can't compare these\nEval1 Categories: %s\nEval2 Categories: %s" % (eval1.categories, eval2.categories)
     assert eval1.times == eval2.times, \
     "The times do not match, I can't compare these.\nEval1 times: %s\nEvan2 times: %s" % (eval1.times, eval2.times)
+    # Create a counter to get global statistics
     cnt = Counter()
-    category_results = defaultdict(dict)
-    last_broad_category = ''
-    print "Both reviewers agree on the following:"
-    for category in eval1.categories:
-        both_counter=0
-        # The : MIN category will be in categories.  We shouldn't try to process this, though
-        # We also want to leave off the Engagement category because it is optional and not all reviewers do it.
-        if category in eval1.results and category.lower().find('engagement')==-1:
-            this_broad_category = get_broad_category(category)
-            if this_broad_category != last_broad_category:
-                print "%s" % this_broad_category
-                last_broad_category = this_broad_category
+    category_results = defaultdict(list)
+    print "Category results (Observation code, count of both agreeing, overlap %)"
+    for category, observations in eval1.categories.iteritems():
+        print category
+        overlap_counter = 0
+        for observation in observations:
             
-            for time_ind, time in enumerate(eval1.times):
-                eval1result = eval1.results[category][time_ind]
-                eval2result = eval2.results[category][time_ind]
-                if eval1result==1 and eval2result==1:
-                    cnt['both']+=1
-                    both_counter += 1
-                elif eval1result==0 and eval2result==0:
-                    cnt['neither']+=1
-                elif eval1result==1 and eval2result==0:
-                    cnt['first']+=1
-                elif eval1result==0 and eval2result==1:
-                    cnt['second']+=1
-                else:
-                    raise IOError("Something bad happened with our parsing.  This is likely a data problem...")
-        if both_counter>0:
-            sub_category = get_sub_category(category)
-            category_results[this_broad_category][sub_category] = both_counter
-            print "  %s: %d" % (sub_category, both_counter)
+            eval1results = eval1.results[category][observation]
+            eval2results = eval2.results[category][observation]
+            
+            both_match = sum([1 for index, x in enumerate(eval1results) if x==1 and eval2results[index]==1])
+            neither_match = sum([1 for index, x in enumerate(eval1results) if x==0 and eval2results[index]==0])
+            first_only = sum([1 for index, x in enumerate(eval1results) if x==1 and eval2results[index]==0])
+            second_only = sum([1 for index, x in enumerate(eval1results) if x==0 and eval2results[index]==1])
+            
+            # Increase our global counts
+            cnt['both']+=both_match
+            cnt['neither']+=neither_match
+            cnt['first']+=first_only
+            cnt['second']+=second_only
+            
+            eval1_counts = sum(eval1results)
+            eval2_counts = sum(eval2results)
+            
+            # We calculate a general agreement for this observation by simply taking the lesser of eval1_counts and eval2_counts
+            if eval1_counts<eval2_counts:
+                overlap = eval1_counts
+            else:
+                overlap = eval2_counts
+            
+            # Convert overlap to a %
+            overlap = 100*float(overlap)/len(eval1.times)
+            overlap_counter+=overlap
+            
+            print " %s, %d, %.1f%%" % (observation, both_match, overlap)
+            category_results[category].append(overlap)
+        print " Total Overlap: %.1f" % (overlap_counter)
+            
+
     print """Totals:
 Both: %d
 Neither: %d
@@ -216,31 +234,35 @@ def html_output(eval1, eval2, output_file, category_result):
 
     
     # Add the data
-    for category in eval1.categories[1:]:
-        data = [['Time', 'Eval1', 'Eval2']]
-        for time_ind, time in enumerate(eval1.times):
-            data.append([int(time), eval1.results[category][time_ind], eval2.results[category][time_ind]])
-        output += """data["%s"] = google.visualization.arrayToDataTable(%s, false);\n""" % (category, json.dumps(data))
+    for category, observations in eval1.categories.iteritems():
+        for observation in observations:
+            data = [['Time', 'Eval1', 'Eval2']]
+            for time_ind, time in enumerate(eval1.times):
+                data.append([int(time), eval1.results[category][observation][time_ind], eval2.results[category][observation][time_ind]])
+            output += """data["%s"] = google.visualization.arrayToDataTable(%s, false);\n""" % (category + ': ' + observation, json.dumps(data))
     
     
     # Add the chart functions
-    for category in eval1.categories[1:]:
-        output += """new google.visualization.ColumnChart(document.getElementById("%s")).
+    for category, observations in eval1.categories.iteritems():
+        for observation in observations:
+            id = category + ': ' + observation 
+            output += """new google.visualization.ColumnChart(document.getElementById("%s")).
                         draw(data["%s"], {title:"%s", width:600, height:100, hAxis: {title: "Minute"},
                         isStacked: true});
-                    """ % (category, category, category)
+                    """ % (id, id, id)
     
     # Add the pie chart data
-    for category in category_result:
-        data = [['category', 'time_blocks']]
-        for sub_category, time in category_result[category].iteritems():
-            data.append([sub_category, int(time)])
+    # Iterate over the broad categories (teachers doing/students doing)
+    for category, observations in eval1.categories.iteritems():
+        data = [['observation', 'overlap']]
+        for index, observation in enumerate(observations):
+            data.append([observation, round(category_result[category][index],1)])
         output += """data["%s"] = google.visualization.arrayToDataTable(%s);\n""" % (category, json.dumps(data))
         
     # Add the pie chart functions
-    for category in category_result:
+    for category in eval1.categories.keys():
         output += """new google.visualization.PieChart(document.getElementById('%s')).
-                        draw(data["%s"], {title: "%s"});
+                        draw(data["%s"], {title: "%s", sliceVisibilityThreshold:0, pieSliceText: 'label'});
                   """ % (category, category, category)
     
     # Close the script tags and start the body
@@ -251,10 +273,12 @@ def html_output(eval1, eval2, output_file, category_result):
 """
     
     # Add divs for the plots
-    for category in eval1.categories[1:]:
-        output += '<div id="%s" style="width:700; height:100"></div>\n' % category
+    for category, observations in eval1.categories.iteritems():
+        for observation in observations:
+            id = category + ': ' + observation
+            output += '<div id="%s" style="width:700; height:100"></div>\n' % id
     
-    for category in sorted(category_result.keys()):
+    for category in eval1.categories.keys():
         output += '<div id="%s" style="width:700; height:500"></div>\n' % category
         
     # End the page
