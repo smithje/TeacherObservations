@@ -161,6 +161,9 @@ def compare_teacher_evals(eval1, eval2):
     category_results = defaultdict(list)
     print "Category results (Observation code, count of both agreeing, overlap %)"
     for category, observations in eval1.categories.iteritems():
+        eval1_total_counts = sum([sum(observation) for observation in eval1.results[category].itervalues()])
+        eval2_total_counts = sum([sum(observation) for observation in eval2.results[category].itervalues()])
+        
         print category
         overlap_counter = 0
         for observation in observations:
@@ -179,8 +182,8 @@ def compare_teacher_evals(eval1, eval2):
             cnt['first']+=first_only
             cnt['second']+=second_only
             
-            eval1_counts = sum(eval1results)
-            eval2_counts = sum(eval2results)
+            eval1_counts = 100*float(sum(eval1results))/eval1_total_counts
+            eval2_counts = 100*float(sum(eval2results))/eval2_total_counts
             
             # We calculate a general agreement for this observation by simply taking the lesser of eval1_counts and eval2_counts
             if eval1_counts<eval2_counts:
@@ -188,12 +191,11 @@ def compare_teacher_evals(eval1, eval2):
             else:
                 overlap = eval2_counts
             
-            # Convert overlap to a %
-            overlap = 100*float(overlap)/len(eval1.times)
+
             overlap_counter+=overlap
             
             print " %s, %d, %.1f%%" % (observation, both_match, overlap)
-            category_results[category].append(overlap)
+            category_results[category].append(both_match)
         print " Total Overlap: %.1f" % (overlap_counter)
             
 
@@ -262,7 +264,7 @@ def html_output(eval1, eval2, output_file, category_result):
     # Add the pie chart functions
     for category in eval1.categories.keys():
         output += """new google.visualization.PieChart(document.getElementById('%s')).
-                        draw(data["%s"], {title: "%s", sliceVisibilityThreshold:0, pieSliceText: 'label'});
+                        draw(data["%s"], {title: "%s", sliceVisibilityThreshold:0, pieSliceText: 'percentage'});
                   """ % (category, category, category)
     
     # Close the script tags and start the body
