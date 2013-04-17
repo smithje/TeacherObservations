@@ -205,8 +205,11 @@ Neither: %d
 First only: %d
 Second only: %d
 Total: %d
-Total agreement: %d (%.2f%%)""" % (cnt['both'], cnt['neither'], cnt['first'], cnt['second'], \
-                           sum(cnt.values()), cnt['both']+cnt['neither'], 100.0*(cnt['both']+cnt['neither'])/sum(cnt.values()))
+Total agreement: %d (%.2f%%)
+Time Blocks: %d""" % (cnt['both'], cnt['neither'], cnt['first'], cnt['second'], \
+                           sum(cnt.values()), cnt['both']+cnt['neither'], \
+                           100.0*(cnt['both']+cnt['neither'])/sum(cnt.values()), \
+                           len(eval1.times))
     return cnt, category_results
     
 
