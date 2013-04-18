@@ -196,7 +196,7 @@ def compare_teacher_evals(eval1, eval2):
             
             print " %s, %d, %.1f%%" % (observation, both_match, overlap)
             category_results[category].append(both_match)
-        print " Total Overlap: %.1f" % (overlap_counter)
+        print " Total Overlap for %s: %.1f" % (category, overlap_counter)
             
 
     print """Totals:
