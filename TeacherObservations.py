@@ -338,6 +338,7 @@ def html_output(eval1, eval2, output_file, category_result, time_blocks):
 
                 yAxis: {
                     min: 0,
+                    max: 100,
                     stackLabels: {
                         enabled: false,
                         style: {
