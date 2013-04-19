@@ -143,7 +143,7 @@ class TeacherObservation(object):
                             result_position += 1
                                     
 
-def count_filled_time_intervals(*observations):
+def count_filled_time_intervals(observations):
     """
     We want to count how many time intervals were actually filled out - that means 
     that it is non-zero for any observation 
@@ -344,6 +344,9 @@ def html_output(eval1, eval2, output_file, category_result, time_blocks):
                             fontWeight: 'bold',
                             color: (Highcharts.theme && Highcharts.theme.textColor) || 'gray'
                         }
+                    },
+                    title: {
+                        text: '%% of total time blocks'
                     }
                 },
                 legend: {
@@ -352,8 +355,7 @@ def html_output(eval1, eval2, output_file, category_result, time_blocks):
                 tooltip: {
                     formatter: function() {
                         return '<b>'+ this.x +'</b><br/>'+
-                            this.series.name +': '+ this.y +'<br/>'+
-                            'Total: '+ this.point.stackTotal;
+                            this.series.name +': '+ this.y;
                     }
                 },
                 plotOptions: {
@@ -434,7 +436,7 @@ def html_output(eval1, eval2, output_file, category_result, time_blocks):
         both_column_chart_additional_options[id]['xAxis']['categories'] = observations
         both_column_chart_additional_options[id]['series'] = [{'name':'observation', 'data': []}]
         for index, observation in enumerate(observations):
-            both_column_chart_additional_options[id]['series'][0]['data'].append(float(category_result[category][index])/time_blocks)
+            both_column_chart_additional_options[id]['series'][0]['data'].append(100*float(category_result[category][index])/time_blocks)
         
         chart_functions.append("""$(%s).highcharts($.extend({}, both_column_chart_additional_options['%s'], bothColumnChartOptions))""" % (id, id))
         column_chart_div_ids.append(id)
