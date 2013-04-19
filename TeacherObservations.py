@@ -143,8 +143,18 @@ class TeacherObservation(object):
                             result_position += 1
                                     
 
-
-
+def count_filled_time_intervals(*observations):
+    """
+    We want to count how many time intervals were actually filled out - that means 
+    that it is non-zero for any observation 
+    """
+    # Put all the observations together:
+    obs = zip(*observations)
+    
+    # Count up the intervals that have anything filled out
+    return sum([1 for x in obs if any(x) is True])
+    
+    
 def compare_teacher_evals(eval1, eval2):
     """
     Returns a Counter with the following keys:
@@ -156,6 +166,31 @@ def compare_teacher_evals(eval1, eval2):
     "The categories do not match, I can't compare these\nEval1 Categories: %s\nEval2 Categories: %s" % (eval1.categories, eval2.categories)
     assert eval1.times == eval2.times, \
     "The times do not match, I can't compare these.\nEval1 times: %s\nEvan2 times: %s" % (eval1.times, eval2.times)
+    
+    # How many rows filled out in eval1
+    eval1obs = []
+    for obs in eval1.results.itervalues():
+        eval1obs.extend(obs.values())
+    eval1_count = count_filled_time_intervals(eval1obs)
+    
+    print "Teacher 1: %d time blocks" % eval1_count
+    
+    eval2obs = []
+    for obs in eval2.results.itervalues():
+        eval2obs.extend(obs.values())
+    eval2_count = count_filled_time_intervals(eval2obs)
+    
+    print "Teacher 2: %d time blocks" % eval2_count
+    
+    if eval1_count>eval2_count:
+        total_time_count = eval1_count
+    else:
+        total_time_count = eval2_count
+    
+    
+
+    # How many rows filled out in eval2
+    
     # Create a counter to get global statistics
     cnt = Counter()
     category_results = defaultdict(list)
@@ -206,86 +241,276 @@ First only: %d
 Second only: %d
 Total: %d
 Total agreement: %d (%.2f%%)
-Time Blocks: %d""" % (cnt['both'], cnt['neither'], cnt['first'], cnt['second'], \
+""" % (cnt['both'], cnt['neither'], cnt['first'], cnt['second'], \
                            sum(cnt.values()), cnt['both']+cnt['neither'], \
-                           100.0*(cnt['both']+cnt['neither'])/sum(cnt.values()), \
-                           len(eval1.times))
-    return cnt, category_results
+                           100.0*(cnt['both']+cnt['neither'])/sum(cnt.values()))
+    return cnt, category_results, total_time_count
     
 
-def html_output(eval1, eval2, output_file, category_result):
+def html_output(eval1, eval2, output_file, category_result, time_blocks):
     """
     A quick and dirty attempt at making some plots
     """
     import json
-    head="""
+    
+    def tree():
+        return defaultdict(tree)
+    
+    def get_title(category, observation):
+       return "%s: %s" % (category, observation)  
+    
+    def get_css_name(name):
+        return name.translate(None, r"""!"#$%&'()*+,./:;<=>?@[\]^`{|}~ 0123456789""")
+    
+
+    head="""<!DOCTYPE html>
 <html>
   <head>
+    <title>
+        %s
+    </title>
+    <style>
+        .plot {width:700px;height:250px}
+    </style>
     <!--Load the AJAX API-->
-    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
-    <script type="text/javascript">
-    
-      // Load the Visualization API and the piechart package.
-      google.load('visualization', '1.0', {'packages':['corechart']});
-      
-      // Set a callback to run when the Google Visualization API is loaded.
-      google.setOnLoadCallback(drawCharts);
-      
-      function drawCharts() {
-          var data = {};
-      
-"""
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+    <script src="http://code.highcharts.com/highcharts.js"></script>
+    <script src="http://code.highcharts.com/modules/exporting.js"></script>
+    <script>
+      $(function () {
+        var times = %s; 
+
+        var columnChartOptions = {
+               chart: {
+                    type: 'column',
+                    height: 200,
+                    width: 700,
+                    borderColor: '#CCC',
+                    borderWidth: 2
+                },
+                xAxis: {
+                    categories: times
+                },
+                yAxis: {
+                    min: 0,
+                    max: 2,
+                    minTickInterval: 1,
+                    stackLabels: {
+                        enabled: false,
+                        style: {
+                            fontWeight: 'bold',
+                            color: (Highcharts.theme && Highcharts.theme.textColor) || 'gray'
+                        }
+                    }
+                },
+                legend: {
+                    align: 'right',
+                    verticalAlign: 'middle',
+                    floating: false,
+                    layout: 'vertical',
+                    backgroundColor: (Highcharts.theme && Highcharts.theme.legendBackgroundColorSolid) || 'white',
+                    borderColor: '#CCC',
+                    borderWidth: 1,
+                    shadow: false
+                },
+                tooltip: {
+                    formatter: function() {
+                        return '<b>'+ this.x +'</b><br/>'+
+                            this.series.name +': '+ this.y +'<br/>'+
+                            'Total: '+ this.point.stackTotal;
+                    }
+                },
+                plotOptions: {
+                    column: {
+                        stacking: 'normal'
+                    }
+                }
+          };
+          
+    var bothColumnChartOptions = {
+                   chart: {
+                    type: 'column',
+                    height: 200,
+                    width: 700,
+                    borderColor: '#CCC',
+                    borderWidth: 2
+                },
+
+                yAxis: {
+                    min: 0,
+                    stackLabels: {
+                        enabled: false,
+                        style: {
+                            fontWeight: 'bold',
+                            color: (Highcharts.theme && Highcharts.theme.textColor) || 'gray'
+                        }
+                    }
+                },
+                legend: {
+                    enabled: false
+                },
+                tooltip: {
+                    formatter: function() {
+                        return '<b>'+ this.x +'</b><br/>'+
+                            this.series.name +': '+ this.y +'<br/>'+
+                            'Total: '+ this.point.stackTotal;
+                    }
+                },
+                plotOptions: {
+                    column: {
+                        stacking: 'normal'
+                    }
+                }
+    };
+          
+    var pieChartOptions = {
+            chart: {
+                plotBackgroundColor: null,
+                plotBorderWidth: null,
+                plotShadow: false,
+                width: '700',
+                height: '500'
+                
+            },
+
+            tooltip: {
+                pointFormat: '{series.name}: <b>{point.percentage}%%</b> (<b>{point.y}</b>)',
+                percentageDecimals: 1
+            },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: false,
+                    },
+                    showInLegend: true
+                }
+            },
+            legend: {
+                    align: 'right',
+                    verticalAlign: 'middle',
+                    floating: false,
+                    layout: 'vertical',
+                    backgroundColor: (Highcharts.theme && Highcharts.theme.legendBackgroundColorSolid) || 'white',
+                    borderColor: '#CCC',
+                    borderWidth: 1,
+                    shadow: false
+                }
+        };
+""" % (os.path.basename(output_file), json.dumps(eval1.times))
     output = head
 
+    column_chart_additional_options = tree()
+    chart_functions = []
+    column_chart_div_ids = []
     
-    # Add the data
+    # Add the column chart data
     for category, observations in eval1.categories.iteritems():
         for observation in observations:
-            data = [['Time', 'Eval1', 'Eval2']]
-            for time_ind, time in enumerate(eval1.times):
-                data.append([int(time), eval1.results[category][observation][time_ind], eval2.results[category][observation][time_ind]])
-            output += """data["%s"] = google.visualization.arrayToDataTable(%s, false);\n""" % (category + ': ' + observation, json.dumps(data))
+            title = get_title(category, observation)
+            id = get_css_name(title)
+            column_chart_additional_options[id]['title']['text'] = title
+            column_chart_additional_options[id]['series'] = \
+                [
+                  {'name': 'Teacher 1',
+                   'data': eval1.results[category][observation]
+                   },
+                   {'name': 'Teacher 2',
+                    'data': eval2.results[category][observation]
+                    }
+                ]
+            chart_functions.append("""$(%s).highcharts($.extend({}, column_chart_additional_options['%s'], columnChartOptions))""" % (id, id))
+            column_chart_div_ids.append(id)
     
     
-    # Add the chart functions
+    # Do the new both agree column chart thing
+    both_column_chart_additional_options = tree()
+    
     for category, observations in eval1.categories.iteritems():
-        for observation in observations:
-            id = category + ': ' + observation 
-            output += """new google.visualization.ColumnChart(document.getElementById("%s")).
-                        draw(data["%s"], {title:"%s", width:600, height:100, hAxis: {title: "Minute"},
-                        isStacked: true});
-                    """ % (id, id, id)
+        title = category
+        id = get_css_name(title)+'both'
+        both_column_chart_additional_options[id]['title']['text'] = category
+        both_column_chart_additional_options[id]['xAxis']['categories'] = observations
+        both_column_chart_additional_options[id]['series'] = [{'name':'observation', 'data': []}]
+        for index, observation in enumerate(observations):
+            both_column_chart_additional_options[id]['series'][0]['data'].append(float(category_result[category][index])/time_blocks)
+        
+        chart_functions.append("""$(%s).highcharts($.extend({}, both_column_chart_additional_options['%s'], bothColumnChartOptions))""" % (id, id))
+        column_chart_div_ids.append(id)
+    
+    
+    pie_chart_additional_options = tree()
+    pie_chart_div_ids = []
     
     # Add the pie chart data
-    # Iterate over the broad categories (teachers doing/students doing)
     for category, observations in eval1.categories.iteritems():
-        data = [['observation', 'overlap']]
+        id = get_css_name(category) + 'pie'
+        pie_chart_div_ids.append(id)
+        pie_chart_additional_options[id]['title']['text'] = category
+        pie_chart_additional_options[id]['series'] = \
+            [
+                {'type': 'pie',
+                 'name': 'Observation',
+                 'data': []
+                }
+            ]
         for index, observation in enumerate(observations):
-            data.append([observation, round(category_result[category][index],1)])
-        output += """data["%s"] = google.visualization.arrayToDataTable(%s);\n""" % (category, json.dumps(data))
+            value = round(category_result[category][index],1)
+            pie_chart_additional_options[id]['series'][0]['data'].append({'name': observation,
+                             'y': value,
+                             'dataLabels': {'enabled': True if value>0 else False}
+                             
+                             })
+        chart_functions.append("""$(%s).highcharts($.extend({}, pie_chart_additional_options['%s'], pieChartOptions))""" % (id, id))
         
-    # Add the pie chart functions
-    for category in eval1.categories.keys():
-        output += """new google.visualization.PieChart(document.getElementById('%s')).
-                        draw(data["%s"], {title: "%s", sliceVisibilityThreshold:0, pieSliceText: 'percentage'});
-                  """ % (category, category, category)
+        
+        
+    
+    
+    output += """\nvar column_chart_additional_options = %s;\n""" % json.dumps(column_chart_additional_options)
+    output += """\nvar both_column_chart_additional_options = %s;\n""" % json.dumps(both_column_chart_additional_options)
+    output += """\nvar pie_chart_additional_options = %s;\n""" % json.dumps(pie_chart_additional_options)
+    
+    
+    for chart_function in chart_functions:
+        output += "        %s\n" % chart_function
+    
+    
+    
+#    # Add the pie chart data
+#    # Iterate over the broad categories (teachers doing/students doing)
+#    for category, observations in eval1.categories.iteritems():
+#        data = [['observation', 'overlap']]
+#        for index, observation in enumerate(observations):
+#            data.append([observation, round(category_result[category][index],1)])
+#        output += """data["%s"] = google.visualization.arrayToDataTable(%s);\n""" % (category, json.dumps(data))
+#        
+#    # Add the pie chart functions
+#    for category in eval1.categories.keys():
+#        output += """new google.visualization.PieChart(document.getElementById('%s')).
+#                        draw(data["%s"], {title: "%s", sliceVisibilityThreshold:0, pieSliceText: 'percentage'});
+#                  """ % (category, category, category)
     
     # Close the script tags and start the body
-    output += """};
+    output += """});
     </script>
 </head>
 <body>
 """
-    
-    # Add divs for the plots
-    for category, observations in eval1.categories.iteritems():
-        for observation in observations:
-            id = category + ': ' + observation
-            output += '<div id="%s" style="width:700; height:100"></div>\n' % id
-    
-    for category in eval1.categories.keys():
-        output += '<div id="%s" style="width:700; height:500"></div>\n' % category
-        
+    for id in column_chart_div_ids:
+        output += '<div id="%s" class="plot"></div>\n' % id
+    for id in pie_chart_div_ids:
+        output += '<div id="%s" class="pie"></div>\n' % id
+#    # Add divs for the plots
+#    for category, observations in eval1.categories.iteritems():
+#        for observation in observations:
+#            id = category + ': ' + observation
+#            output += '<div id="%s" style="width:700; height:100"></div>\n' % id
+#    
+#    for category in eval1.categories.keys():
+#        output += '<div id="%s" style="width:700; height:500"></div>\n' % category
+#        
     # End the page
     output += """</body>
 </html>"""
@@ -318,7 +543,7 @@ if __name__ == '__main__':
         TE2 = TeacherObservation(csv2)
         TE2.parse()
         
-        cnt, category_result = compare_teacher_evals(TE1, TE2)
+        cnt, category_result, total_time_blocks = compare_teacher_evals(TE1, TE2)
         if args.output:
-            html_output(TE1, TE2, args.output[0], category_result)
+            html_output(TE1, TE2, args.output[0], category_result, total_time_blocks)
     
