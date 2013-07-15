@@ -194,7 +194,7 @@ def compare_teacher_evals(eval1, eval2):
     # Create a counter to get global statistics
     cnt = Counter()
     category_results = defaultdict(list)
-    print "Category results (Observation code, count of both agreeing, overlap %)"
+    print "Category results (Observation code, both, neither, first only, second only, overlap %)"
     for category, observations in eval1.categories.iteritems():
         eval1_total_counts = sum([sum(observation) for observation in eval1.results[category].itervalues()])
         eval2_total_counts = sum([sum(observation) for observation in eval2.results[category].itervalues()])
@@ -229,7 +229,7 @@ def compare_teacher_evals(eval1, eval2):
 
             overlap_counter+=overlap
             
-            print " %s, %d, %.1f%%" % (observation, both_match, overlap)
+            print " %s, %d, %d, %d, %d, %.1f%%" % (observation, both_match, neither_match, first_only, second_only, overlap)
             category_results[category].append(both_match)
         print " Total Overlap for %s: %.1f" % (category, overlap_counter)
             
